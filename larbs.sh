@@ -1,13 +1,14 @@
 #!/bin/sh
 
-# Luke's Auto Rice Bootstrapping Script (LARBS)
-# by Luke Smith <luke@lukesmith.xyz>
+# Lane's Luke's Auto Rice Bootstrapping Script (LARBS)
+# Originally by Luke Smith <luke@lukesmith.xyz>
+# Forked by Lane Russell <https://lnrssll.com>
 # License: GNU GPLv3
 
 ### OPTIONS AND VARIABLES ###
 
-dotfilesrepo="https://github.com/lukesmithxyz/voidrice.git"
-progsfile="https://raw.githubusercontent.com/LukeSmithxyz/LARBS/master/static/progs.csv"
+dotfilesrepo="https://github.com/lnrssll/dotfiles.git"
+progsfile="https://raw.githubusercontent.com/lnrssll/LLARBS/master/progs.csv"
 aurhelper="yay"
 repobranch="master"
 export TERM=ansi
@@ -26,7 +27,7 @@ error() {
 
 welcomemsg() {
 	whiptail --title "Welcome!" \
-		--msgbox "Welcome to Luke's Auto-Rice Bootstrapping Script!\\n\\nThis script will automatically install a fully-featured Linux desktop, which I use as my main machine.\\n\\n-Luke" 10 60
+		--msgbox "Welcome to Lane's Luke's Auto-Rice Bootstrapping Script!\\n\\nThis script will automatically install a fully-featured Linux desktop, which I use as my main machine.\\n\\n-Luke\\n\\n-Lane" 10 60
 
 	whiptail --title "Important Note!" --yes-button "All ready!" \
 		--no-button "Return..." \
@@ -52,7 +53,7 @@ usercheck() {
 	! { id -u "$name" >/dev/null 2>&1; } ||
 		whiptail --title "WARNING" --yes-button "CONTINUE" \
 			--no-button "No wait..." \
-			--yesno "The user \`$name\` already exists on this system. LARBS can install for a user already existing, but it will OVERWRITE any conflicting settings/dotfiles on the user account.\\n\\nLARBS will NOT overwrite your user files, documents, videos, etc., so don't worry about that, but only click <CONTINUE> if you don't mind your settings being overwritten.\\n\\nNote also that LARBS will change $name's password to the one you just gave." 14 70
+			--yesno "The user \`$name\` already exists on this system. LLARBS can install for a user already existing, but it will OVERWRITE any conflicting settings/dotfiles on the user account.\\n\\nLLARBS will NOT overwrite your user files, documents, videos, etc., so don't worry about that, but only click <CONTINUE> if you don't mind your settings being overwritten.\\n\\nNote also that LLARBS will change $name's password to the one you just gave." 14 70
 }
 
 preinstallmsg() {
@@ -76,6 +77,7 @@ adduserandpass() {
 	unset pass1 pass2
 }
 
+# maybe include the arch mirrorlist optimization here
 refreshkeys() {
 	case "$(readlink -f /sbin/init)" in
 	*systemd*)
@@ -181,72 +183,9 @@ putgitrepo() {
 	sudo -u "$name" cp -rfT "$dir" "$2"
 }
 
-vimplugininstall() {
-	# Installs vim plugins.
-	whiptail --infobox "Installing neovim plugins..." 7 60
-	mkdir -p "/home/$name/.config/nvim/autoload"
-	curl -Ls "https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim" >  "/home/$name/.config/nvim/autoload/plug.vim"
-	chown -R "$name:wheel" "/home/$name/.config/nvim"
-	sudo -u "$name" nvim -c "PlugInstall|q|q"
-}
-
-makeuserjs(){
-	# Get the Arkenfox user.js and prepare it.
-	arkenfox="$pdir/arkenfox.js"
-	overrides="$pdir/user-overrides.js"
-	userjs="$pdir/user.js"
-	ln -fs "/home/$name/.config/firefox/larbs.js" "$overrides"
-	[ ! -f "$arkenfox" ] && curl -sL "https://raw.githubusercontent.com/arkenfox/user.js/master/user.js" > "$arkenfox"
-	cat "$arkenfox" "$overrides" > "$userjs"
-	chown "$name:wheel" "$arkenfox" "$userjs"
-	# Install the updating script.
-	mkdir -p /usr/local/lib /etc/pacman.d/hooks
-	cp "/home/$name/.local/bin/arkenfox-auto-update" /usr/local/lib/
-	chown root:root /usr/local/lib/arkenfox-auto-update
-	chmod 755 /usr/local/lib/arkenfox-auto-update
-	# Trigger the update when needed via a pacman hook.
-	echo "[Trigger]
-Operation = Upgrade
-Type = Package
-Target = firefox
-Target = librewolf
-Target = librewolf-bin
-[Action]
-Description=Update Arkenfox user.js
-When=PostTransaction
-Depends=arkenfox-user.js
-Exec=/usr/local/lib/arkenfox-auto-update" > /etc/pacman.d/hooks/arkenfox.hook
-}
-
-installffaddons(){
-	addonlist="ublock-origin decentraleyes istilldontcareaboutcookies vim-vixen"
-	addontmp="$(mktemp -d)"
-	trap "rm -fr $addontmp" HUP INT QUIT TERM PWR EXIT
-	IFS=' '
-	sudo -u "$name" mkdir -p "$pdir/extensions/"
-	for addon in $addonlist; do
-		if [ "$addon" = "ublock-origin" ]; then
-			addonurl="$(curl -sL https://api.github.com/repos/gorhill/uBlock/releases/latest | grep -E 'browser_download_url.*\.firefox\.xpi' | cut -d '"' -f 4)"
-		else
-			addonurl="$(curl --silent "https://addons.mozilla.org/en-US/firefox/addon/${addon}/" | grep -o 'https://addons.mozilla.org/firefox/downloads/file/[^"]*')"
-		fi
-		file="${addonurl##*/}"
-		sudo -u "$name" curl -LOs "$addonurl" > "$addontmp/$file"
-		id="$(unzip -p "$file" manifest.json | grep "\"id\"")"
-		id="${id%\"*}"
-		id="${id##*\"}"
-		mv "$file" "$pdir/extensions/$id.xpi"
-	done
-	chown -R "$name:$name" "$pdir/extensions"
-	# Fix a Vim Vixen bug with dark mode not fixed on upstream:
-	sudo -u "$name" mkdir -p "$pdir/chrome"
-	[ ! -f  "$pdir/chrome/userContent.css" ] && sudo -u "$name" echo ".vimvixen-console-frame { color-scheme: light !important; }
-#category-more-from-mozilla { display: none !important }" > "$pdir/chrome/userContent.css"
-}
-
 finalize() {
 	whiptail --title "All done!" \
-		--msgbox "Congrats! Provided there were no hidden errors, the script completed successfully and all the programs and configuration files should be in place.\\n\\nTo run the new graphical environment, log out and log back in as your new user, then run the command \"startx\" to start the graphical environment (it will start automatically in tty1).\\n\\n.t Luke" 13 80
+		--msgbox "Congrats! Provided there were no hidden errors, the script completed successfully and all the programs and configuration files should be in place.\\n\\nTo run the new graphical environment, log out and log back in as your new user, then run the command \"startx\" to start the graphical environment (it will start automatically in tty1).\\n\\n.t Luke\\n\\n.t Lane" 13 80
 }
 
 ### THE ACTUAL SCRIPT ###
@@ -276,12 +215,12 @@ refreshkeys ||
 	error "Error automatically refreshing Arch keyring. Consider doing so manually."
 
 for x in curl ca-certificates base-devel git ntp zsh; do
-	whiptail --title "LARBS Installation" \
+	whiptail --title "LLARBS Installation" \
 		--infobox "Installing \`$x\` which is required to install and configure other programs." 8 70
 	installpkg "$x"
 done
 
-whiptail --title "LARBS Installation" \
+whiptail --title "LLARBS Installation" \
 	--infobox "Synchronizing system time to ensure successful and secure installation of software..." 8 70
 ntpd -q -g >/dev/null 2>&1
 
@@ -313,13 +252,12 @@ $aurhelper -Y --save --devel
 # and all build dependencies are installed.
 installationloop
 
-# Install the dotfiles in the user's home directory, but remove .git dir and
+# Install the dotfiles in the user's home directory, but remove
 # other unnecessary files.
 putgitrepo "$dotfilesrepo" "/home/$name" "$repobranch"
-rm -rf "/home/$name/.git/" "/home/$name/README.md" "/home/$name/LICENSE" "/home/$name/FUNDING.yml"
 
 # Install vim plugins if not alread present.
-[ ! -f "/home/$name/.config/nvim/autoload/plug.vim" ] && vimplugininstall
+# TODO nvchad
 
 # Most important command! Get rid of the beep!
 rmmod pcspkr
@@ -337,7 +275,7 @@ dbus-uuidgen >/var/lib/dbus/machine-id
 # Use system notifications for Brave on Artix
 echo "export \$(dbus-launch)" >/etc/profile.d/dbus.sh
 
-# Enable tap to click
+# Enable tap to click (TODO this is for laptops only, maybe make it optional?)
 [ ! -f /etc/X11/xorg.conf.d/40-libinput.conf ] && printf 'Section "InputClass"
         Identifier "libinput touchpad catchall"
         MatchIsTouchpad "on"
@@ -347,30 +285,10 @@ echo "export \$(dbus-launch)" >/etc/profile.d/dbus.sh
 	Option "Tapping" "on"
 EndSection' >/etc/X11/xorg.conf.d/40-libinput.conf
 
-# All this below to get Librewolf installed with add-ons and non-bad settings.
-
-whiptail --infobox "Setting browser privacy settings and add-ons..." 7 60
-
-browserdir="/home/$name/.librewolf"
-profilesini="$browserdir/profiles.ini"
-
-# Start librewolf headless so it generates a profile. Then get that profile in a variable.
-sudo -u "$name" librewolf --headless >/dev/null 2>&1 &
-sleep 1
-profile="$(sed -n "/Default=.*.default-default/ s/.*=//p" "$profilesini")"
-pdir="$browserdir/$profile"
-
-[ -d "$pdir" ] && makeuserjs
-
-[ -d "$pdir" ] && installffaddons
-
-# Kill the now unnecessary librewolf instance.
-pkill -u "$name" librewolf
-
 # Allow wheel users to sudo with password and allow several system commands
 # (like `shutdown` to run without password).
 echo "%wheel ALL=(ALL:ALL) ALL" >/etc/sudoers.d/00-larbs-wheel-can-sudo
-echo "%wheel ALL=(ALL:ALL) NOPASSWD: /usr/bin/shutdown,/usr/bin/reboot,/usr/bin/systemctl suspend,/usr/bin/wifi-menu,/usr/bin/mount,/usr/bin/umount,/usr/bin/pacman -Syu,/usr/bin/pacman -Syyu,/usr/bin/pacman -Syyu --noconfirm,/usr/bin/loadkeys,/usr/bin/pacman -Syyuw --noconfirm,/usr/bin/pacman -S -y --config /etc/pacman.conf --,/usr/bin/pacman -S -y -u --config /etc/pacman.conf --" >/etc/sudoers.d/01-larbs-cmds-without-password
+echo "%wheel ALL=(ALL:ALL) NOPASSWD: /usr/bin/shutdown,/usr/bin/reboot,/usr/bin/systemctl suspend,/usr/bin/wifi-menu,/usr/bin/mount,/usr/bin/umount,/usr/bin/cryptsetup,/usr/bin/pacman -Syu,/usr/bin/pacman -Syyu,/usr/bin/pacman -Syyu --noconfirm,/usr/bin/loadkeys,/usr/bin/pacman -Syyuw --noconfirm,/usr/bin/pacman -S -y --config /etc/pacman.conf --,/usr/bin/pacman -S -y -u --config /etc/pacman.conf --" >/etc/sudoers.d/01-larbs-cmds-without-password
 echo "Defaults editor=/usr/bin/nvim" >/etc/sudoers.d/02-larbs-visudo-editor
 mkdir -p /etc/sysctl.d
 echo "kernel.dmesg_restrict = 0" > /etc/sysctl.d/dmesg.conf

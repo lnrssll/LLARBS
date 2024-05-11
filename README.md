@@ -1,10 +1,16 @@
+![larbs logo](/assets/larbs.png)
+
 # Lane's Luke's Auto-Ricing Bootstrapping Scripts (LLARBS)
 
-This is my "fork" (but not literally) of [LukeSmithxyz's](https://github.com/LukeSmithxyz) autoinstallation and autoconfiguration scripts for Arch linux, also known as ["LARBS"](https://github.com/LukeSmithxyz/LARBS)
+This is my "fork" (but not literally) of [LukeSmithxyz's](https://github.com/LukeSmithxyz) autoinstallation and autoconfiguration scripts for Arch linux, also known as ["LARBS"](https://larbs.xyz)
 
 It is not *literally* a fork because the actual larbs repo is for the [larbs.xyz](https://larbs.xyz/) website, which I don't want -- this is just the meat.
 
 I've used larbs on a few Arch installs for its convenience, and I love it, but I'd like to have my own automated configuration system, and I have more to tweak than just the `progs.csv` file, so... this.
+
+## Design Philosophy
+
+In general, I'm approaching the entire build with a "Chesterton's Fence" mentality: keep programs around unless there's a good reason not to. In general, I expect to slowly deviate from the original repo over the course of years, and I'll probably try to add some functionality for running on other operating systems -- obviously you can't get quite the same setup, but translating my Arch rice to e.g. MacOS would be nice.
 
 Everything below is from Luke's original README for larbs, with a few tweaks:
 

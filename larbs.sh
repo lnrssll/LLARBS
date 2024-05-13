@@ -7,7 +7,8 @@
 
 ### OPTIONS AND VARIABLES ###
 
-dotfilesrepo="https://github.com/lnrssll/dotfiles.git"
+github="https://github.com"
+dotfilesrepo="$github/lnrssll/dotfiles.git"
 progsfile="https://raw.githubusercontent.com/lnrssll/LLARBS/master/progs.csv"
 aurhelper="yay"
 repobranch="master"
@@ -77,7 +78,6 @@ adduserandpass() {
 	unset pass1 pass2
 }
 
-# maybe include the arch mirrorlist optimization here
 refreshkeys() {
 	case "$(readlink -f /sbin/init)" in
 	*systemd*)
@@ -214,11 +214,16 @@ preinstallmsg || error "User exited."
 refreshkeys ||
 	error "Error automatically refreshing Arch keyring. Consider doing so manually."
 
-for x in curl ca-certificates base-devel git ntp zsh; do
+for x in curl ca-certificates base-devel git ntp zsh reflector; do
 	whiptail --title "LLARBS Installation" \
 		--infobox "Installing \`$x\` which is required to install and configure other programs." 8 70
 	installpkg "$x"
 done
+
+# run reflector to optimize mirrorlist
+country="US"
+reflector -c "$country" -a 6 --sort rate --save /etc/pacman.d/mirrorlist
+sudo pacman -Syy # force refresh of package databases with new mirrorlist
 
 whiptail --title "LLARBS Installation" \
 	--infobox "Synchronizing system time to ensure successful and secure installation of software..." 8 70
@@ -256,8 +261,33 @@ installationloop
 # other unnecessary files.
 putgitrepo "$dotfilesrepo" "/home/$name" "$repobranch"
 
-# Install vim plugins if not alread present.
-# TODO nvchad
+# Install vim plugins -- update: moved to dotfiles
+
+configdir="/home/$name/.config"
+
+installtmuxplugins() {
+  local sessionname="temp-session"
+  whiptail --title "LARBS Installation" --infobox "Installing TMUX TPM plugins..." 9 70
+	[ -x "$(command -v "tmux")" ] || return 0
+  tmux new-session -d -s "$sessionname"
+  tmux send-keys -t "$sessionname" C-Space I
+  # tmux run-shell -t "$sessionname" "$tpmdir/bindings/install_plugins"
+  tmux kill-session -t "$sessionname"
+
+  # Count the number of directories in the plugins directory, excluding the tpm directory
+  plugindir=$configdir/tmux/plugins/
+  plugincount=$(find "$plugindir" -mindepth 1 -maxdepth 1 -type d ! -name 'tpm' | wc -l)
+  [ "$plugincount" -gt 0 ] && return 1 || return 0
+}
+
+# Install tmux plugins
+tmuxdir="$configdir/tmux"
+[ -d "$tmuxdir/plugins/tpm" ] && installtmuxplugins || error "TMUX plugin installation failed"
+
+# Install alacritty themes
+putgitrepo "$github/alacritty/alacritty-theme.git" "$configdir/alacritty" "$repobranch"
+
+# TODO Nvidia/Cuda setup
 
 # Most important command! Get rid of the beep!
 rmmod pcspkr

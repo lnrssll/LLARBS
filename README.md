@@ -84,3 +84,7 @@ effectively with the `newperms` function. At the end of installation,
 `newperms` removes those settings, giving the user the ability to run only
 several basic sudo commands without a password (`shutdown`, `reboot`,
 `pacman -Syu`).
+
+# TODO
+
+Nvidia/CUDA setup

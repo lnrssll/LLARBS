@@ -103,7 +103,7 @@ manualinstall() {
 	pacman -Qq "$1" && return 0
 	whiptail --infobox "Installing \"$1\" manually." 7 50
 	sudo -u "$name" mkdir -p "$repodir/$1"
-	sudo -u "$name" git -C "$repodir" clone --depth 1 --single-branch \
+	sudo -u "$name" git -C "$repodir" clone --depth 1 \
 		--no-tags -q "https://aur.archlinux.org/$1.git" "$repodir/$1" ||
 		{
 			cd "$repodir/$1" || return 1
@@ -126,7 +126,7 @@ gitmakeinstall() {
 	dir="$repodir/$progname"
 	whiptail --title "LARBS Installation" \
 		--infobox "Installing \`$progname\` ($n of $total) via \`git\` and \`make\`. $(basename "$1") $2" 8 70
-	sudo -u "$name" git -C "$repodir" clone --depth 1 --single-branch \
+	sudo -u "$name" git -C "$repodir" clone --depth 1 \
 		--no-tags -q "$1" "$dir" ||
 		{
 			cd "$dir" || return 1
@@ -170,17 +170,15 @@ installationloop() {
 	done </tmp/progs.csv
 }
 
-putgitrepo() {
-	# Downloads a gitrepo $1 and places the files in $2 only overwriting conflicts
-	whiptail --infobox "Downloading and installing config files..." 7 60
-	[ -z "$3" ] && branch="master" || branch="$repobranch"
-	dir=$(mktemp -d)
-	[ ! -d "$2" ] && mkdir -p "$2"
-	chown "$name":wheel "$dir" "$2"
-	sudo -u "$name" git -C "$repodir" clone --depth 1 \
-		--single-branch --no-tags -q --recursive -b "$branch" \
-		--recurse-submodules "$1" "$dir"
-	sudo -u "$name" cp -rfT "$dir" "$2"
+linkdotfiles() {
+  # Downloads $dotfilesrepo on $1 branch (fallback to $repobranch)
+  # to $repodir and link to home
+  whiptail --infobox "Downloading and installing dotfiles..." 7 60
+  [ -z "$1" ] && branch="$1" || branch="$repobranch"
+  git -C "$repodir" clone --depth 1 --no-tags \
+    -q -b "$branch" --recurse-submodules \
+    "$dotfilesrepo" dotfiles
+  stow -d "$repodir/dotfiles" -t ~
 }
 
 finalize() {
@@ -257,11 +255,12 @@ $aurhelper -Y --save --devel
 # and all build dependencies are installed.
 installationloop
 
-# Install the dotfiles in the user's home directory, but remove
-# other unnecessary files.
-putgitrepo "$dotfilesrepo" "/home/$name" "$repobranch"
+# Install the dotfiles
+linkdotfiles
 
-# Install vim plugins -- update: moved to dotfiles
+# Install nvm (node dependency for nvchad)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+[ -x "$(command -v "nvm")" ] && nvm install node
 
 configdir="/home/$name/.config"
 
@@ -283,9 +282,6 @@ installtmuxplugins() {
 # Install tmux plugins
 tmuxdir="$configdir/tmux"
 [ -d "$tmuxdir/plugins/tpm" ] && installtmuxplugins || error "TMUX plugin installation failed"
-
-# Install alacritty themes
-putgitrepo "$github/alacritty/alacritty-theme.git" "$configdir/alacritty" "$repobranch"
 
 # TODO Nvidia/Cuda setup
 
